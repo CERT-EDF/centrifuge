@@ -57,10 +57,10 @@ def _date_for_prop(attributes: dict, prop: str) -> datetime:
 def _base_record(attributes: dict) -> dict:
     analysis_stats = attributes.get('last_analysis_stats', {})
     return {
-        'malicious': analysis_stats['malicious'],
-        'suspicious': analysis_stats['suspicious'],
-        'undetected': analysis_stats['undetected'],
-        'harmless': analysis_stats['harmless'],
+        'malicious': analysis_stats.get('malicious'),
+        'suspicious': analysis_stats.get('suspicious'),
+        'undetected': analysis_stats.get('undetected'),
+        'harmless': analysis_stats.get('harmless'),
         'link': attributes.get('links', {}).get('self', ''),
     }
 
