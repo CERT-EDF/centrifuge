@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from vt import Client, url_id
+from vt.error import APIError
 
 from ..atom import URL, Digest, Domain, IPv4, IPv6
 from ..helper.logging import get_logger
@@ -67,7 +68,11 @@ def _base_record(attributes: dict) -> dict:
 async def _fetch(ctx: EnricherContext, path: str) -> Record:
     _LOGGER.info("requesting %s", path)
     client = ctx.ext[_CTX_EXT_CLIENT]
-    data = await client.get_json_async(path)
+    try:
+        data = await client.get_json_async(path)
+    except APIError as exc:
+        _LOGGER.error("vt api error: %s", exc)
+        return {}
     return data.get('data', {}).get('attributes', {})
 
 
