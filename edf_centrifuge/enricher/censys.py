@@ -44,7 +44,7 @@ class CensysEnricherConfig(EnricherConfig):
 async def _fetch_host(ctx: EnricherContext, ipvx: str) -> Record:
     session = ctx.ext[CTX_EXT_SESSION]
     params = {}
-    if ctx.org_id:
+    if ctx.config.org_id:
         params['organization_id'] = ctx.config.org_id
     headers = {
         'Accept': 'application/vnd.censys.api.v3.host.v1+json',
