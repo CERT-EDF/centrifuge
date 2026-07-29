@@ -45,7 +45,7 @@ def _parse_lolc2(text: str) -> RecordIterator:
 def _parse_lolrmm(text: str) -> RecordIterator:
     items = loads(text)
     for item in items:
-        for network in item['Artifacts']['Network']:
+        for network in item['Artifacts'].get('Network', []):
             fqdn_set = set()
             for fqdn in network['Domains']:
                 match = _FQDN_PATTERN.match(fqdn.lower())
