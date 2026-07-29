@@ -1,13 +1,14 @@
 """Centrifuge known pwsh cmdlet loader"""
 
-import re
 from collections import defaultdict
-from json import loads
+from json import JSONDecodeError, loads
+from re import compile as regexp
 
 from ..cache import Cache
 from ..config import Resource, ResourceConfigMapping
 from ..helper.asyncpg import RowAsyncIterator
 from ..helper.json import dumps
+from ..helper.logging import get_logger
 from ..record import RecordIterator
 from .base import (
     Loader,
@@ -16,33 +17,31 @@ from .base import (
 )
 
 GUID = 'known_pwsh_cmdlet'
-_MODULE_PATTERN = re.compile(r'PowerShell Module:\s*`([^`]+)`', re.IGNORECASE)
+_LOGGER = get_logger(f'loader.{GUID}')
+_MODULE_PATTERN = regexp(r'PowerShell Module:\s*`([^`]+)`', re.IGNORECASE)
 
 
 def _parse_loflcab(text: str) -> RecordIterator:
     try:
         data = loads(text)
-    except ValueError:
+    except JSONDecodeError:
+        _LOGGER.error("source loflcab is probably broken")
         return
     for rec in data:
         if rec.get('Type') != 'Cmdlets':
             continue
-
         name = rec.get('Name')
         if not name:
             continue
-
         mitre = set()
         module = None
         commands = rec.get('Commands', []) or []
-
         for cmd in commands:
             if not cmd:
                 continue
             techniques = cmd.get('MitreAttack', []) or []
             if techniques:
                 mitre.update(techniques)
-
             comments = cmd.get('Comments', []) or []
             for comment in comments:
                 if not comment:
@@ -50,7 +49,6 @@ def _parse_loflcab(text: str) -> RecordIterator:
                 match = _MODULE_PATTERN.search(comment)
                 if match:
                     module = match.group(1)
-
         yield {
             'cmdlet': name,
             'description': rec.get('Description', ''),

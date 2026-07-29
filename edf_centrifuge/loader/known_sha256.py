@@ -1,12 +1,13 @@
 """Centrifuge known SHA-256 loader"""
 
 from collections import defaultdict
-from json import loads
+from json import JSONDecodeError, loads
 
 from ..cache import Cache
 from ..config import Resource, ResourceConfigMapping
 from ..helper.asyncpg import RowAsyncIterator
 from ..helper.json import dumps
+from ..helper.logging import get_logger
 from ..record import RecordIterator
 from .base import (
     Loader,
@@ -16,10 +17,15 @@ from .base import (
 )
 
 GUID = 'known_sha256'
+_LOGGER = get_logger(f'loader.{GUID}')
 
 
 def _parse_loldrv(text: str) -> RecordIterator:
-    items = loads(text)
+    try:
+        items = loads(text)
+    except JSONDecodeError:
+        _LOGGER.error("source loldrv is probably broken")
+        return
     for item in items:
         for vuln_sample in item['KnownVulnerableSamples']:
             sha256 = vuln_sample.get('SHA256')
@@ -34,7 +40,11 @@ def _parse_loldrv(text: str) -> RecordIterator:
 
 
 def _parse_hijacklibs(text: str) -> RecordIterator:
-    items = loads(text)
+    try:
+        items = loads(text)
+    except JSONDecodeError:
+        _LOGGER.error("source hijacklibs is probably broken")
+        return
     for item in items:
         for vuln_exe in item['VulnerableExecutables']:
             for sha256 in vuln_exe.get('SHA256', []):
@@ -45,7 +55,11 @@ def _parse_hijacklibs(text: str) -> RecordIterator:
 
 
 def _parse_bootloaders(text: str) -> RecordIterator:
-    items = loads(text)
+    try:
+        items = loads(text)
+    except JSONDecodeError:
+        _LOGGER.error("source bootloaders is probably broken")
+        return
     for item in items:
         known_vulnerables_samples = item.get('KnownVulnerableSamples', [])
         for vuln_sample in known_vulnerables_samples:

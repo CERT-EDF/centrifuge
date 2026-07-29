@@ -2,13 +2,14 @@
 
 from collections import defaultdict
 from collections.abc import Iterator
-from json import loads
+from json import JSONDecodeError, loads
 from re import compile as regexp
 
 from ..cache import Cache
 from ..config import Resource, ResourceConfigMapping
 from ..helper.asyncpg import RowAsyncIterator
 from ..helper.json import dumps
+from ..helper.logging import get_logger
 from ..record import RecordIterator
 from .base import (
     Loader,
@@ -18,6 +19,7 @@ from .base import (
 )
 
 GUID = 'known_usb'
+_LOGGER = get_logger(f'loader.{GUID}')
 _LOTHW_PATTERN = regexp(r'VID_(?P<vid>....)&PID_(?P<pid>....)')
 
 
@@ -35,7 +37,11 @@ def _lothw_instances(products: list[dict]) -> Iterator[tuple[str, str]]:
 
 
 def _parse_lothw(text: str) -> RecordIterator:
-    item = loads(text)
+    try:
+        item = loads(text)
+    except JSONDecodeError:
+        _LOGGER.error("source lothw is probably broken")
+        return
     for name, path in _lothw_instances(item['products']):
         match = _LOTHW_PATTERN.search(path)
         if not match:
@@ -49,7 +55,12 @@ def _parse_lothw(text: str) -> RecordIterator:
 
 
 def _parse_lin_usb_ids(text: str) -> RecordIterator:
-    for vid, item in loads(text).items():
+    try:
+        data = loads(text)
+    except JSONDecodeError:
+        _LOGGER.error("source lin usb ids is probably broken")
+        return
+    for vid, item in data.items():
         vid = vid.lower()
         vendor = item.get('name', '')
         yield {

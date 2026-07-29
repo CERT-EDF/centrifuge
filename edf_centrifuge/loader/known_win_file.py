@@ -1,14 +1,15 @@
 """Centrifuge known windows file loader"""
 
-import re
 from collections import defaultdict
-from json import loads
+from json import JSONDecodeError, loads
 from pathlib import PureWindowsPath
+from re import compile as regexp
 
 from ..cache import Cache
 from ..config import Resource, ResourceConfigMapping
 from ..helper.asyncpg import RowAsyncIterator
 from ..helper.json import dumps
+from ..helper.logging import get_logger
 from ..record import RecordIterator
 from .base import (
     Loader,
@@ -19,10 +20,16 @@ from .base import (
 )
 
 GUID = 'known_win_file'
+_LOGGER = get_logger(f'loader.{GUID}')
+_WS_AND_COMMA = regexp(r'[,\s]+')
 
 
 def _parse_lolrmm(text: str) -> RecordIterator:
-    items = loads(text)
+    try:
+        items = loads(text)
+    except JSONDecodeError:
+        _LOGGER.error("source lolrmm is probably broken")
+        return
     for item in items:
         paths = item.get('Details', {}).get('InstallationPaths')
         if not paths:
@@ -39,7 +46,11 @@ def _parse_lolrmm(text: str) -> RecordIterator:
 
 
 def _parse_loldrv(text: str) -> RecordIterator:
-    items = loads(text)
+    try:
+        items = loads(text)
+    except JSONDecodeError:
+        _LOGGER.error("source loldrv is probably broken")
+        return
     for item in items:
         for filename in item['Tags']:
             filename = filename.lower()
@@ -54,7 +65,11 @@ def _parse_loldrv(text: str) -> RecordIterator:
 
 
 def _parse_lolbas(text: str) -> RecordIterator:
-    items = loads(text)
+    try:
+        items = loads(text)
+    except JSONDecodeError:
+        _LOGGER.error("source lolbas is probably broken")
+        return
     for item in items:
         tags = {'src.lolbas'}
         for command in item['Commands']:
@@ -91,8 +106,7 @@ def _parse_filesec(text: str) -> RecordIterator:
         if func:
             tags.add(sanitize_tag(func))
         if os_field:
-            # split on commas or whitespace
-            for os_name in re.split(r'[,\s]+', os_field):
+            for os_name in _WS_AND_COMMA.split(os_field):
                 os_name = os_name.strip()
                 if not os_name:
                     continue
@@ -102,7 +116,11 @@ def _parse_filesec(text: str) -> RecordIterator:
 
 
 def _parse_hijacklibs(text: str) -> RecordIterator:
-    items = loads(text)
+    try:
+        items = loads(text)
+    except JSONDecodeError:
+        _LOGGER.error("source hijacklibs is probably broken")
+        return
     for item in items:
         yield {
             'filename': item['Name'].lower(),
@@ -119,7 +137,8 @@ def _parse_loflcab(text: str) -> RecordIterator:
     """Parse loflcab JSON"""
     try:
         data = loads(text)
-    except ValueError:
+    except JSONDecodeError:
+        _LOGGER.error("source loflcab is probably broken")
         return
     for rec in data:
         if rec.get('Type') != 'Binaries':

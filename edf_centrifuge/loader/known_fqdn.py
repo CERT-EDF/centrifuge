@@ -1,8 +1,8 @@
 """Centrifuge known FQDN loader"""
 
-import ipaddress
 from collections import defaultdict
-from json import loads
+from ipaddress import ip_address
+from json import JSONDecodeError, loads
 from re import compile as regexp
 
 from yarl import URL
@@ -11,6 +11,7 @@ from ..cache import Cache
 from ..config import Resource, ResourceConfigMapping
 from ..helper.asyncpg import RowAsyncIterator
 from ..helper.json import dumps
+from ..helper.logging import get_logger
 from ..record import RecordIterator
 from .base import (
     Loader,
@@ -22,12 +23,17 @@ from .base import (
 )
 
 GUID = 'known_fqdn'
+_LOGGER = get_logger(f'loader.{GUID}')
 _FQDN_PATTERN = regexp(r'(?P<fqdn>[a-z\d\-\*]+(\.[a-z\d\-\*]+)+)')
 _URL_FQDN_PATTERN = regexp(r'https?://(?P<fqdn>[a-z\d\-\*]+(\.[a-z\d\-\*]+)+)')
 
 
 def _parse_lolc2(text: str) -> RecordIterator:
-    items = loads(text)
+    try:
+        items = loads(text)
+    except JSONDecodeError:
+        _LOGGER.error("source lolc2 is probably broken")
+        return
     for name, info in items.items():
         fqdn_set = set()
         for item in info['detection']:
@@ -43,7 +49,11 @@ def _parse_lolc2(text: str) -> RecordIterator:
 
 
 def _parse_lolrmm(text: str) -> RecordIterator:
-    items = loads(text)
+    try:
+        items = loads(text)
+    except JSONDecodeError:
+        _LOGGER.error("source lolrmm is probably broken")
+        return
     for item in items:
         for network in item['Artifacts'].get('Network', []):
             fqdn_set = set()
@@ -116,7 +126,7 @@ def _parse_urlhaus(text: str) -> RecordIterator:
         if not fqdn:
             continue
         try:
-            ipaddress.ip_address(fqdn)
+            ip_address(fqdn)
             continue
         except ValueError:
             pass

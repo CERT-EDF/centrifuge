@@ -1,12 +1,13 @@
 """Centrifuge known public network loader"""
 
 from collections import defaultdict
-from json import loads
+from json import JSONDecodeError, loads
 
 from ..cache import Cache
 from ..config import Resource, ResourceConfigMapping
 from ..helper.asyncpg import RowAsyncIterator
 from ..helper.json import dumps
+from ..helper.logging import get_logger
 from ..record import RecordIterator
 from .base import (
     Loader,
@@ -16,10 +17,15 @@ from .base import (
 )
 
 GUID = 'known_public_network'
+_LOGGER = get_logger(f'loader.{GUID}')
 
 
 def _parse_aws(text: str) -> RecordIterator:
-    data = loads(text)
+    try:
+        data = loads(text)
+    except JSONDecodeError:
+        _LOGGER.error("source aws is probably broken")
+        return
     for prefix in data.get('prefixes', []):
         tags = {'src.aws', 'ipv4', prefix['region'], prefix['service']}
         yield {'network': prefix['ip_prefix'], 'tags': tags}
@@ -29,7 +35,11 @@ def _parse_aws(text: str) -> RecordIterator:
 
 
 def _parse_azure(text: str) -> RecordIterator:
-    data = loads(text)
+    try:
+        data = loads(text)
+    except JSONDecodeError:
+        _LOGGER.error("source azure is probably broken")
+        return
     for value in data.get('values', []):
         props = value.get('properties', {})
         region = props.get('region')
@@ -51,7 +61,11 @@ def _parse_azure(text: str) -> RecordIterator:
 
 
 def _parse_gcp(text: str) -> RecordIterator:
-    data = loads(text)
+    try:
+        data = loads(text)
+    except JSONDecodeError:
+        _LOGGER.error("source gcp is probably broken")
+        return
     for prefix in data.get('prefixes', []):
         net = prefix.get('ipv4Prefix') or prefix.get('ipv6Prefix')
         if not net:
@@ -60,7 +74,11 @@ def _parse_gcp(text: str) -> RecordIterator:
 
 
 def _parse_protonvpn(text: str) -> RecordIterator:
-    data = loads(text)
+    try:
+        data = loads(text)
+    except JSONDecodeError:
+        _LOGGER.error("source protonvpn is probably broken")
+        return
     for entry in data.get('data', []):
         tags = {'src.protonvpn', entry.get('domain'), entry.get('city')}
         if entry.get('Streaming'):

@@ -1,13 +1,14 @@
 """Centrifuge known CVE loader"""
 
 from datetime import date
-from json import loads
+from json import JSONDecodeError, loads
 from re import compile as regexp
 
 from ..cache import Cache
 from ..config import Resource, ResourceConfig, ResourceConfigMapping
 from ..helper.asyncpg import RowAsyncIterator
 from ..helper.json import dumps
+from ..helper.logging import get_logger
 from ..record import RecordIterator
 from .base import (
     Loader,
@@ -17,7 +18,9 @@ from .base import (
     sanitize_tag,
 )
 
+
 GUID = 'known_cve'
+_LOGGER = get_logger(f'loader.{GUID}')
 _CVE_PATTERN = regexp(r'CVE-\d{4}-\d{4,7}')
 
 
@@ -56,7 +59,11 @@ def _extract_description(cve: dict) -> str | None:
 
 
 def _parse_nvd(text: str) -> RecordIterator:
-    data = loads(text)
+    try:
+        data = loads(text)
+    except JSONDecodeError:
+        _LOGGER.error("source nvd is probably broken")
+        return
     for vuln in data['vulnerabilities']:
         cve = vuln['cve']
         published, _ = cve['published'].split('.', 1)
@@ -71,7 +78,11 @@ def _parse_nvd(text: str) -> RecordIterator:
 
 
 def _parse_kev(text: str) -> RecordIterator:
-    data = loads(text)
+    try:
+        data = loads(text)
+    except JSONDecodeError:
+        _LOGGER.error("source kev is probably broken")
+        return
     for vuln in data['vulnerabilities']:
         yield {'cve': vuln['cveID']}
 
@@ -89,7 +100,11 @@ def _parse_exploitdb(text: str) -> RecordIterator:
 
 
 def _parse_github_advisory(text: str) -> RecordIterator:
-    data = loads(text)
+    try:
+        data = loads(text)
+    except JSONDecodeError:
+        _LOGGER.error("source ghsa is probably broken")
+        return
     for advisory in data:
         aliases = advisory.get('aliases') or []
         ghsa_id = advisory.get('id')

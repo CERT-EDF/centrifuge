@@ -1,8 +1,8 @@
 """Centrifuge known IPvX loader"""
 
-import ipaddress
 from collections import defaultdict
-from json import loads
+from ipaddress import ip_address
+from json import JSONDecodeError, loads
 
 from yarl import URL
 
@@ -10,6 +10,7 @@ from ..cache import Cache
 from ..config import Resource, ResourceConfigMapping
 from ..helper.asyncpg import RowAsyncIterator
 from ..helper.json import dumps
+from ..helper.logging import get_logger
 from ..record import RecordIterator
 from .base import (
     Loader,
@@ -20,10 +21,15 @@ from .base import (
 )
 
 GUID = 'known_ipvx'
+_LOGGER = get_logger(f'loader.{GUID}')
 
 
 def _parse_tor(text: str) -> RecordIterator:
-    data = loads(text)
+    try:
+        data = loads(text)
+    except JSONDecodeError:
+        _LOGGER.error("source tor is probably broken")
+        return
     for relay in data.get('relays', []):
         exit_addresses = relay.get('exit_addresses')
         if not exit_addresses:
@@ -56,11 +62,13 @@ def _parse_urlhaus(text: str) -> RecordIterator:
             continue
         try:
             url = URL(url_str)
-            ipvx = url.host
-            if not ipvx:
-                continue
-            # Simple check if host is an IP address
-            ipaddress.ip_address(ipvx)
+        except ValueError:
+            continue
+        ipvx = url.host
+        if not ipvx:
+            continue
+        try:
+            ip_address(ipvx)
         except ValueError:
             continue
         tags = ['src.urlhaus']
@@ -87,17 +95,14 @@ async def _generate_known_ipvx_rows(
     cache: Cache, config: ResourceConfigMapping
 ) -> RowAsyncIterator:
     rows = defaultdict(set)
-
     async for rec in fetch_resource_records(
         cache, config, Resource.TOR, _parse_tor
     ):
         rows[rec['ipvx']].update(rec['tags'])
-
     async for rec in fetch_resource_records(
         cache, config, Resource.URLHAUS, _parse_urlhaus
     ):
         rows[rec['ipvx']].update(rec['tags'])
-
     for ipvx, tags in rows.items():
         if not ipvx:
             continue

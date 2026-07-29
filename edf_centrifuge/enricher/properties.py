@@ -2,7 +2,22 @@
 
 from dataclasses import dataclass
 
-from ..atom import CVE, CWE, Digest, Email, MAC, Other, Phone, USB, UUID, URL, Domain, IPv4, IPv6, Atom
+from ..atom import (
+    CVE,
+    CWE,
+    Digest,
+    Email,
+    MAC,
+    Other,
+    Phone,
+    USB,
+    UUID,
+    URL,
+    Domain,
+    IPv4,
+    IPv6,
+    Atom,
+)
 from ..helper.logging import get_logger
 from ..record import Record
 from .base import (
@@ -72,9 +87,7 @@ async def _enrich_usb_impl(
     return record
 
 
-async def _enrich_url_impl(
-    ctx: EnricherContext, url: URL, feedback: Feedback
-):
+async def _enrich_url_impl(ctx: EnricherContext, url: URL, feedback: Feedback):
     record = await _enrich_default_impl(ctx, url, feedback)
     record.update({'host': url.host.value})
     enrich_func = _ENRICH_IMPL_MAP.get(type(url.host))

@@ -1,12 +1,13 @@
 """Centrifuge known wmi class loader"""
 
 from collections import defaultdict
-from json import loads
+from json import JSONDecodeError, loads
 
 from ..cache import Cache
 from ..config import Resource, ResourceConfigMapping
 from ..helper.asyncpg import RowAsyncIterator
 from ..helper.json import dumps
+from ..helper.logging import get_logger
 from ..record import RecordIterator
 from .base import (
     Loader,
@@ -15,12 +16,14 @@ from .base import (
 )
 
 GUID = 'known_wmi_class'
+_LOGGER = get_logger(f'loader.{GUID}')
 
 
 def _parse_loflcab(text: str) -> RecordIterator:
     try:
         data = loads(text)
-    except ValueError:
+    except JSONDecodeError:
+        _LOGGER.error("source loflcab is probably broken")
         return
     for rec in data:
         if rec.get('Type') != 'WMI':
