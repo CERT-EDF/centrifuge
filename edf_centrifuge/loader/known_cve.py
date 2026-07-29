@@ -34,7 +34,7 @@ def _extract_score(cve: dict) -> float:
     dct = cve.get('metrics') or {}
     for _, metrics in dct.items():
         for metric in metrics:
-            if metric['type'] == 'Primary':
+            if metric.get('type') == 'Primary':
                 return metric['cvssData']['baseScore']
     return 0.0
 
