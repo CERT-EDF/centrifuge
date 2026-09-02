@@ -61,7 +61,6 @@ def _base_record(attributes: dict) -> dict:
         'suspicious': analysis_stats.get('suspicious'),
         'undetected': analysis_stats.get('undetected'),
         'harmless': analysis_stats.get('harmless'),
-        'link': attributes.get('links', {}).get('self', ''),
     }
 
 
@@ -161,7 +160,6 @@ _FIELDS = (
     'suspicious',
     'undetected',
     'harmless',
-    'link',
     'created',
     'updated',
     'tls_crt_date',
