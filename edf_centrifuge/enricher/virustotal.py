@@ -8,6 +8,7 @@ from vt import Client, url_id
 from vt.error import APIError
 
 from ..atom import URL, Digest, Domain, IPv4, IPv6
+from ..helper.json import dumps
 from ..helper.logging import get_logger
 from ..record import Record
 from .base import (
@@ -64,6 +65,19 @@ def _base_record(attributes: dict) -> dict:
     }
 
 
+def _tls_record(attributes: dict) -> dict:
+    tls_crt = attributes.get('last_https_certificate', {})
+    return {
+        'tls_jarm': attributes.get('jarm'),
+        'tls_crt_cn': tls_crt.get('subject', {}).get('CN'),
+        'tls_crt_san': dumps(tls_crt.get('extensions', {}).get('subject_alternative_name', [])),
+        'tls_crt_date': _date_for_prop(
+            attributes, 'last_https_certificate_date'
+        ),
+        'tls_crt_issuer': dumps(tls_crt.get('issuer', {})),
+    }
+
+
 async def _fetch(ctx: EnricherContext, path: str) -> Record:
     _LOGGER.info("requesting %s", path)
     client = ctx.ext[_CTX_EXT_CLIENT]
@@ -93,11 +107,9 @@ async def _enrich_ipvx_impl(
     record.update(
         {
             'updated': _date_for_prop(attributes, 'last_modification_date'),
-            'tls_crt_date': _date_for_prop(
-                attributes, 'last_https_certificate_date'
-            ),
         }
     )
+    record.update(_tls_record(attributes))
     return record
 
 
@@ -110,11 +122,11 @@ async def _enrich_domain_impl(
         {
             'created': _date_for_prop(attributes, 'creation_date'),
             'updated': _date_for_prop(attributes, 'last_modification_date'),
-            'tls_crt_date': _date_for_prop(
-                attributes, 'last_https_certificate_date'
-            ),
+            'registrar': attributes.get('registrar'),
+            'whois_date': _date_for_prop(attributes, 'whois_date'),
         }
     )
+    record.update(_tls_record(attributes))
     return record
 
 
@@ -162,7 +174,13 @@ _FIELDS = (
     'harmless',
     'created',
     'updated',
+    'registrar',
+    'whois_date',
+    'tls_jarm',
+    'tls_crt_cn',
+    'tls_crt_san',
     'tls_crt_date',
+    'tls_crt_issuer',
     'yara_rules',
     'last_analysis',
     'first_submission',
