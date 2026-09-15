@@ -18,7 +18,7 @@ from .base import (
 
 GUID = 'known_pwsh_cmdlet'
 _LOGGER = get_logger(f'loader.{GUID}')
-_MODULE_PATTERN = regexp(r'PowerShell Module:\s*`([^`]+)`', re.IGNORECASE)
+_MODULE_PATTERN = regexp(r'(?i)PowerShell Module:\s*`([^`]+)`')
 
 
 def _parse_loflcab(text: str) -> RecordIterator:
